@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
+import 'screens/home_screen.dart';
 
 void main() {
   runApp(const LyraApp());
@@ -15,18 +16,7 @@ class LyraApp extends StatelessWidget {
       title: 'LYRA',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: const Scaffold(
-        body: Center(
-          child: Text(
-            'LYRA',
-            style: TextStyle(
-              fontFamily: 'BlackOpsOne',
-              fontSize: 40,
-              color: AppColors.primaryRed,
-            ),
-          ),
-        ),
-      ),
+      home: const HomeScreen(),
     );
   }
 }
