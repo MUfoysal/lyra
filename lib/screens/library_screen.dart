@@ -1,12 +1,201 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../core/theme/app_theme.dart';
 import '../data/song_data.dart';
 import '../services/favorites_service.dart';
+import '../cubit/music_cubit.dart';
+import 'player_screen.dart';
 
 class LibraryScreen extends StatelessWidget {
   const LibraryScreen({super.key});
+
+  Future<void> _playSong(BuildContext context, int index) async {
+    await context.read<MusicCubit>().playSong(index);
+
+    if (!context.mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PlayerScreen(),
+      ),
+    );
+  }
+
+  Widget _buildArtwork(String? image) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        width: 52,
+        height: 52,
+        child: image != null
+            ? Image.asset(
+                image,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildFallback();
+                },
+              )
+            : _buildFallback(),
+      ),
+    );
+  }
+
+  Widget _buildFallback() {
+    return Container(
+      color: AppColors.darkRed,
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.album_rounded,
+        color: AppColors.primaryRed,
+        size: 25,
+      ),
+    );
+  }
+
+  Widget _buildSongCard(
+    BuildContext context,
+    int index,
+    Map<String, String> song,
+  ) {
+    final title = song['title'] ?? 'Unknown Track';
+    final artist = song['artist'] ?? 'Unknown Artist';
+
+    return BlocBuilder<MusicCubit, MusicState>(
+      builder: (context, state) {
+        final isCurrentSong = state.currentIndex == index;
+        final isPlaying = isCurrentSong && state.isPlaying;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isCurrentSong
+                  ? AppColors.primaryRed.withValues(alpha: 0.45)
+                  : AppColors.darkRed.withValues(alpha: 0.25),
+            ),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => _playSong(context, index),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 22,
+                      child: Text(
+                        '${index + 1}'.padLeft(2, '0'),
+                        style: TextStyle(
+                          color: isCurrentSong
+                              ? AppColors.primaryRed
+                              : AppColors.textSecondary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+
+                    _buildArtwork(song['image']),
+
+                    const SizedBox(width: 12),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 10,
+                            ),
+                          ),
+                          if (isCurrentSong) ...[
+                            const SizedBox(height: 5),
+                            const Text(
+                              'NOW PLAYING',
+                              style: TextStyle(
+                                color: AppColors.primaryRed,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    ValueListenableBuilder<Set<String>>(
+                      valueListenable: FavoritesService.favorites,
+                      builder: (context, favorites, child) {
+                        final isFavorite = favorites.contains(title);
+
+                        return IconButton(
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () {
+                            FavoritesService.toggleFavorite(title);
+                          },
+                          icon: Icon(
+                            isFavorite
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: isFavorite
+                                ? AppColors.primaryRed
+                                : AppColors.textSecondary,
+                            size: 19,
+                          ),
+                        );
+                      },
+                    ),
+
+                    if (isCurrentSong)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () {
+                          context.read<MusicCubit>().togglePlayPause();
+                        },
+                        icon: Icon(
+                          isPlaying
+                              ? Icons.pause_circle_filled_rounded
+                              : Icons.play_circle_fill_rounded,
+                          color: AppColors.primaryRed,
+                          size: 29,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +207,6 @@ class LibraryScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               SizedBox(
                 height: 50,
                 child: Stack(
@@ -91,12 +279,11 @@ class LibraryScreen extends StatelessWidget {
 
               const SizedBox(height: 28),
 
-              // Song count
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'ALL SONGS',
+                    'ALL TRACKS',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 13,
@@ -108,7 +295,7 @@ class LibraryScreen extends StatelessWidget {
                     '${songs.length} TRACKS',
                     style: const TextStyle(
                       color: AppColors.textSecondary,
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -117,108 +304,40 @@ class LibraryScreen extends StatelessWidget {
 
               const SizedBox(height: 15),
 
-              // Song list
-              ...songs.asMap().entries.map((entry) {
-                final index = entry.key;
-                final song = entry.value;
-                final title = song['title']!;
-                final artist = song['artist']!;
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.darkRed.withValues(alpha: 0.25),
+              if (songs.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 50),
+                    child: Text(
+                      'No songs available yet.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 45,
-                        height: 45,
-                        decoration: BoxDecoration(
-                          color: AppColors.darkRed.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.music_note_rounded,
-                          color: AppColors.primaryRed,
-                          size: 24,
-                        ),
-                      ),
+                )
+              else
+                ...songs.asMap().entries.map((entry) {
+                  return _buildSongCard(
+                    context,
+                    entry.key,
+                    entry.value,
+                  );
+                }),
 
-                      const SizedBox(width: 13),
+              const SizedBox(height: 15),
 
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              artist,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      Text(
-                        '${index + 1}'.padLeft(2, '0'),
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-
-                      const SizedBox(width: 8),
-
-                      ValueListenableBuilder<Set<String>>(
-                        valueListenable: FavoritesService.favorites,
-                        builder: (context, favorites, child) {
-                          final isFavorite = favorites.contains(title);
-
-                          return IconButton(
-                            onPressed: () {
-                              FavoritesService.toggleFavorite(title);
-                            },
-                            icon: Icon(
-                              isFavorite
-                                  ? Icons.favorite_rounded
-                                  : Icons.favorite_border_rounded,
-                              color: isFavorite
-                                  ? AppColors.primaryRed
-                                  : AppColors.textSecondary,
-                              size: 21,
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+              const Center(
+                child: Text(
+                  'LYRA  •  YOUR MUSIC. YOUR WORLD.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.3,
                   ),
-                );
-              }),
+                ),
+              ),
             ],
           ),
         ),
