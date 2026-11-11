@@ -2,10 +2,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../data/song_data.dart';
 import '../core/theme/app_theme.dart';
 import '../services/favorites_service.dart';
+import '../cubit/music_cubit.dart';
+import 'player_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -91,11 +94,430 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _playSong(String title) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Playback system is not connected yet.'),
-        duration: Duration(seconds: 2),
+  Future<void> _playSong(int index) async {
+    await context.read<MusicCubit>().playSong(index);
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PlayerScreen(),
+      ),
+    );
+  }
+
+  Widget _buildAlbumCover(
+    String? image, {
+    double? width,
+    double? height,
+    double iconSize = 50,
+    double radius = 15,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: image != null
+            ? Image.asset(
+                image,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildCoverFallback(iconSize);
+                },
+              )
+            : _buildCoverFallback(iconSize),
+      ),
+    );
+  }
+
+  Widget _buildCoverFallback(double iconSize) {
+    return Container(
+      color: AppColors.darkRed,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.album_rounded,
+        size: iconSize,
+        color: AppColors.primaryRed,
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, String subtitle) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 19,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+          ),
+        ),
+        Text(
+          subtitle,
+          style: const TextStyle(
+            color: AppColors.primaryRed,
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppColors.darkRed.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              color: AppColors.primaryRed,
+              size: 22,
+            ),
+            const SizedBox(height: 13),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 23,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  
+Widget _buildFeaturedCard(int index) {
+  final song = songs[index];
+  final title = song['title']!;
+  final artist = song['artist']!;
+  final image = song['image'];
+
+  return GestureDetector(
+    onTap: () => _playSong(index),
+    child: Container(
+      margin: const EdgeInsets.only(right: 5),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(23),
+        border: Border.all(
+          color: AppColors.darkRed.withValues(alpha: 0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryRed.withValues(alpha: 0.12),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (image != null)
+            Image.asset(
+              image,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return _buildCoverFallback(65);
+              },
+            )
+          else
+            _buildCoverFallback(65),
+
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.08),
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.35),
+                  Colors.black.withValues(alpha: 0.92),
+                ],
+                stops: const [0.0, 0.25, 0.55, 1.0],
+              ),
+            ),
+          ),
+
+          Positioned(
+            top: 15,
+            left: 15,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.2),
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.graphic_eq_rounded,
+                    color: AppColors.primaryRed,
+                    size: 13,
+                  ),
+                  SizedBox(width: 5),
+                  Text(
+                    'FEATURED TRACK',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          Positioned(
+            left: 17,
+            right: 15,
+            bottom: 15,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 12,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 10),
+
+                ValueListenableBuilder<Set<String>>(
+                  valueListenable: FavoritesService.favorites,
+                  builder: (context, favorites, child) {
+                    final isFavorite = favorites.contains(title);
+
+                    return GestureDetector(
+                      onTap: () {
+                        FavoritesService.toggleFavorite(title);
+                      },
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Icon(
+                          isFavorite
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          color: isFavorite
+                              ? AppColors.primaryRed
+                              : Colors.white,
+                          size: 19,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(width: 8),
+
+                Container(
+                  width: 43,
+                  height: 43,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryRed,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 29,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+
+  Widget _buildRecentlyAddedCard(int index) {
+    final song = songs[index];
+    final title = song['title']!;
+    final artist = song['artist']!;
+    final image = song['image'];
+
+    return GestureDetector(
+      onTap: () => _playSong(index),
+      child: Container(
+        width: 155,
+        margin: const EdgeInsets.only(right: 13),
+        padding: const EdgeInsets.all(9),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppColors.darkRed.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                _buildAlbumCover(
+                  image,
+                  width: double.infinity,
+                  height: 112,
+                  iconSize: 45,
+                  radius: 13,
+                ),
+                Positioned(
+                  top: 5,
+                  right: 5,
+                  child: ValueListenableBuilder<Set<String>>(
+                    valueListenable: FavoritesService.favorites,
+                    builder: (context, favorites, child) {
+                      final isFavorite = favorites.contains(title);
+
+                      return GestureDetector(
+                        onTap: () {
+                          FavoritesService.toggleFavorite(title);
+                        },
+                        child: Container(
+                          width: 29,
+                          height: 29,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isFavorite
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: isFavorite
+                                ? AppColors.primaryRed
+                                : Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Positioned(
+                  bottom: 6,
+                  right: 6,
+                  child: Container(
+                    width: 29,
+                    height: 29,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primaryRed,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              artist,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -109,516 +531,240 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final recentSongs = songs.take(5).toList();
+
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(25, 18, 20, 25),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 48,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    SizedBox(
-                      height: 50,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Container(
-                              width: 43,
-                              height: 43,
-                              decoration: BoxDecoration(
-                                color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: AppColors.darkRed,
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.graphic_eq_rounded,
-                                color: AppColors.primaryRed,
-                                size: 27,
-                              ),
-                            ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        width: 43,
+                        height: 43,
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppColors.darkRed,
                           ),
-                          const Text(
-                            'L Y R A',
-                            style: TextStyle(
-                              fontFamily: 'BlackOpsOne',
-                              fontSize: 30,
-                              letterSpacing: 2,
-                              color: AppColors.primaryRed,
-                            ),
-                          ),
-                        ],
+                        ),
+                        child: const Icon(
+                          Icons.graphic_eq_rounded,
+                          color: AppColors.primaryRed,
+                          size: 27,
+                        ),
                       ),
                     ),
-
-                    const SizedBox(height: 38),
-
                     const Text(
-                      'YOUR MUSIC. YOUR WORLD.',
+                      'L Y R A',
                       style: TextStyle(
+                        fontFamily: 'BlackOpsOne',
+                        fontSize: 30,
+                        letterSpacing: 2,
                         color: AppColors.primaryRed,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 2.5,
                       ),
                     ),
-
-                    const SizedBox(height: 10),
-
-                    const Text(
-                      'Feel every beat.',
-                      style: TextStyle(
-                        fontSize: 29,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -1,
-                      ),
-                    ),
-
-                    const SizedBox(height: 7),
-
-                    const Text(
-                      'Your favorite sounds, all in one place.',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    SizedBox(
-                      height: 205,
-                      child: songs.isEmpty
-                          ? const Center(
-                              child: Text('No songs available'),
-                            )
-                          : NotificationListener<ScrollNotification>(
-                              onNotification:
-                                  _handleScrollNotification,
-                              child: PageView.builder(
-                                controller: _pageController,
-                                physics: const PageScrollPhysics(),
-                                onPageChanged: _onPageChanged,
-                                itemBuilder: (context, page) {
-                                  final song =
-                                      songs[page % songs.length];
-
-                                  final title = song['title']!;
-                                  final artist = song['artist']!;
-
-                                  return GestureDetector(
-                                    onTap: () => _playSong(title),
-                                    child: Container(
-                                      margin: const EdgeInsets.only(
-                                        right: 5,
-                                      ),
-                                      padding: const EdgeInsets.all(22),
-                                      decoration: BoxDecoration(
-                                        borderRadius:
-                                            BorderRadius.circular(22),
-                                        gradient:
-                                            const LinearGradient(
-                                          colors: [
-                                            Color(0xFF8B111F),
-                                            Color(0xFF42121B),
-                                            Color(0xFF181313),
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                      ),
-                                      child: Stack(
-                                        children: [
-                                          Positioned(
-                                            right: -15,
-                                            top: -20,
-                                            child: Icon(
-                                              Icons.album_rounded,
-                                              size: 145,
-                                              color:
-                                                  Colors.white.withValues(
-                                                alpha: 0.07,
-                                              ),
-                                            ),
-                                          ),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment
-                                                    .spaceBetween,
-                                            children: [
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets
-                                                        .symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 6,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white
-                                                      .withValues(
-                                                    alpha: 0.12,
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius
-                                                          .circular(20),
-                                                ),
-                                                child: const Text(
-                                                  'FEATURED TRACK',
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight:
-                                                        FontWeight.w700,
-                                                    letterSpacing: 1.5,
-                                                  ),
-                                                ),
-                                              ),
-                                              Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.end,
-                                                children: [
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          title,
-                                                          maxLines: 1,
-                                                          overflow:
-                                                              TextOverflow
-                                                                  .ellipsis,
-                                                          style:
-                                                              const TextStyle(
-                                                            fontSize: 21,
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .w800,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 6,
-                                                        ),
-                                                        Text(
-                                                          artist,
-                                                          maxLines: 1,
-                                                          overflow:
-                                                              TextOverflow
-                                                                  .ellipsis,
-                                                          style:
-                                                              const TextStyle(
-                                                            color: Colors
-                                                                .white70,
-                                                            fontSize: 12,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  ValueListenableBuilder<
-                                                      Set<String>>(
-                                                    valueListenable:
-                                                        FavoritesService
-                                                            .favorites,
-                                                    builder: (
-                                                      context,
-                                                      favorites,
-                                                      child,
-                                                    ) {
-                                                      final isFavorite =
-                                                          favorites
-                                                              .contains(
-                                                        title,
-                                                      );
-
-                                                      return IconButton(
-                                                        onPressed: () {
-                                                          FavoritesService
-                                                              .toggleFavorite(
-                                                            title,
-                                                          );
-                                                        },
-                                                        icon: Icon(
-                                                          isFavorite
-                                                              ? Icons
-                                                                  .favorite_rounded
-                                                              : Icons
-                                                                  .favorite_border_rounded,
-                                                          color:
-                                                              Colors.white,
-                                                        ),
-                                                      );
-                                                    },
-                                                  ),
-                                                  Container(
-                                                    width: 48,
-                                                    height: 48,
-                                                    decoration:
-                                                        const BoxDecoration(
-                                                      color: AppColors
-                                                          .primaryRed,
-                                                      shape:
-                                                          BoxShape.circle,
-                                                    ),
-                                                    child: const Icon(
-                                                      Icons
-                                                          .play_arrow_rounded,
-                                                      size: 32,
-                                                      color: Colors.white,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.wifi_off_rounded,
+                              color: AppColors.primaryRed,
+                              size: 12,
+                            ),
+                            SizedBox(width: 5),
+                            Text(
+                              'OFFLINE',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
                               ),
                             ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    if (songs.isNotEmpty)
-                      Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(
-                            songs.length,
-                            (index) {
-                              final isActive =
-                                  _currentIndex == index;
-
-                              return GestureDetector(
-                                onTap: () => _selectPage(index),
-                                child: AnimatedContainer(
-                                  duration: const Duration(
-                                    milliseconds: 200,
-                                  ),
-                                  margin:
-                                      const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                  ),
-                                  width: isActive ? 22 : 7,
-                                  height: 7,
-                                  decoration: BoxDecoration(
-                                    color: isActive
-                                        ? AppColors.primaryRed
-                                        : AppColors.darkRed,
-                                    borderRadius:
-                                        BorderRadius.circular(10),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                          ],
                         ),
-                      ),
-
-                    const SizedBox(height: 30),
-
-                    Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Recently Added',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          'NEW TRACKS',
-                          style: TextStyle(
-                            color: AppColors.primaryRed,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 17),
-
-                    SizedBox(
-                      height: 157,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: songs.length,
-                        itemBuilder: (context, index) {
-                          final song = songs[index];
-                          final title = song['title']!;
-
-                          return Container(
-                            width: 132,
-                            margin: const EdgeInsets.only(right: 14),
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                Stack(
-                                  children: [
-                                    Container(
-                                      width: 132,
-                                      height: 105,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surface,
-                                        borderRadius:
-                                            BorderRadius.circular(16),
-                                        gradient:
-                                            const LinearGradient(
-                                          colors: [
-                                            AppColors.darkRed,
-                                            AppColors.surface,
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                      ),
-                                      child: const Icon(
-                                        Icons.album_rounded,
-                                        size: 49,
-                                        color: AppColors.primaryRed,
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 4,
-                                      right: 4,
-                                      child:
-                                          ValueListenableBuilder<
-                                              Set<String>>(
-                                        valueListenable:
-                                            FavoritesService.favorites,
-                                        builder: (
-                                          context,
-                                          favorites,
-                                          child,
-                                        ) {
-                                          final isFavorite =
-                                              favorites.contains(title);
-
-                                          return IconButton(
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            onPressed: () {
-                                              FavoritesService
-                                                  .toggleFavorite(title);
-                                            },
-                                            icon: Icon(
-                                              isFavorite
-                                                  ? Icons
-                                                      .favorite_rounded
-                                                  : Icons
-                                                      .favorite_border_rounded,
-                                              color: isFavorite
-                                                  ? AppColors.primaryRed
-                                                  : Colors.white,
-                                              size: 19,
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 9),
-                                Text(
-                                  title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
 
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 12,
+              const SizedBox(height: 38),
+
+              const Text(
+                'YOUR MUSIC. YOUR WORLD.',
+                style: TextStyle(
+                  color: AppColors.primaryRed,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2.5,
+                ),
               ),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                border: Border(
-                  top: BorderSide(
-                    color: AppColors.darkRed.withValues(
-                      alpha: 0.4,
+
+              const SizedBox(height: 10),
+
+              const Text(
+                'Feel every beat.',
+                style: TextStyle(
+                  fontSize: 30,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1,
+                ),
+              ),
+
+              const SizedBox(height: 7),
+
+              const Text(
+                'Your favorite sounds, all in one place.',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              _buildSectionTitle('Featured Track', 'HANDPICKED FOR YOU'),
+
+              const SizedBox(height: 14),
+
+              SizedBox(
+                height: 210,
+                child: songs.isEmpty
+                    ? const Center(
+                        child: Text('No songs available'),
+                      )
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: _handleScrollNotification,
+                        child: PageView.builder(
+                          controller: _pageController,
+                          physics: const PageScrollPhysics(),
+                          onPageChanged: _onPageChanged,
+                          itemBuilder: (context, page) {
+                            final index = page % songs.length;
+                            return _buildFeaturedCard(index);
+                          },
+                        ),
+                      ),
+              ),
+
+              const SizedBox(height: 15),
+
+              if (songs.isNotEmpty)
+                Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      songs.length,
+                      (index) {
+                        final isActive = _currentIndex == index;
+
+                        return GestureDetector(
+                          onTap: () => _selectPage(index),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: isActive ? 22 : 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? AppColors.primaryRed
+                                  : AppColors.darkRed,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
-              ),
-              child: Row(
+
+              const SizedBox(height: 32),
+
+              _buildSectionTitle('Your Collection', 'YOUR MUSIC LIBRARY'),
+
+              const SizedBox(height: 14),
+
+              Row(
                 children: [
-                  Container(
-                    width: 43,
-                    height: 43,
-                    decoration: BoxDecoration(
-                      color: AppColors.darkRed,
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: const Icon(
-                      Icons.album_rounded,
-                      color: Colors.white,
-                    ),
+                  _buildStatCard(
+                    icon: Icons.library_music_rounded,
+                    label: 'TOTAL TRACKS',
+                    value: '${songs.length}',
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Nothing Playing',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        SizedBox(height: 3),
-                        Text(
-                          'Select a song to play',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(
-                      Icons.play_arrow_rounded,
-                    ),
-                    color: AppColors.primaryRed,
-                    iconSize: 29,
+                  ValueListenableBuilder<Set<String>>(
+                    valueListenable: FavoritesService.favorites,
+                    builder: (context, favorites, child) {
+                      return _buildStatCard(
+                        icon: Icons.favorite_rounded,
+                        label: 'FAVORITES',
+                        value: '${favorites.length}',
+                      );
+                    },
                   ),
                 ],
               ),
-            ),
-          ],
+
+              const SizedBox(height: 32),
+
+              _buildSectionTitle(
+                'Recently Added',
+                '${recentSongs.length} TRACKS',
+              ),
+
+              const SizedBox(height: 14),
+
+              if (recentSongs.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 25),
+                  child: Center(
+                    child: Text(
+                      'No songs added yet',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                SizedBox(
+                  height: 183,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: recentSongs.length,
+                    itemBuilder: (context, index) {
+                      return _buildRecentlyAddedCard(index);
+                    },
+                  ),
+                ),
+
+              const SizedBox(height: 28),
+
+             
+            ],
+          ),
         ),
       ),
     );
