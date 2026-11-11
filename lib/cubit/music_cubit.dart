@@ -1,5 +1,6 @@
-import 'dart:async';
 
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -39,9 +40,14 @@ class MusicState {
 
 class MusicCubit extends Cubit<MusicState> {
   final AudioPlayer _player = AudioPlayer();
+
   final List<StreamSubscription<dynamic>> _subscriptions = [];
+
+  Future<void> _operationQueue = Future<void>.value();
+
   bool _advancing = false;
   bool _switching = false;
+
   int _requestId = 0;
 
   MusicCubit() : super(const MusicState()) {
@@ -70,7 +76,7 @@ class MusicCubit extends Cubit<MusicState> {
       ),
     );
 
-    if (completed) {
+    if (completed && !_switching) {
       if (!_advancing) {
         _advancing = true;
         unawaited(playNext());
@@ -84,63 +90,121 @@ class MusicCubit extends Cubit<MusicState> {
     if (_switching) return;
 
     final total = state.duration;
+
     if (total > Duration.zero && position > total) return;
 
     _safeEmit(state.copyWith(position: position));
   }
 
   void _onDuration(Duration? duration) {
+    if (_switching) return;
+
     if (duration != null) {
       _safeEmit(state.copyWith(duration: duration));
     }
   }
 
-  Future<void> playSong(int index) async {
-    if (index < 0 || index >= songs.length) return;
+  Future<void> playSong(int index) {
+    if (index < 0 || index >= songs.length) {
+      return Future<void>.value();
+    }
 
     final assetPath = songs[index]['asset'];
-    if (assetPath == null) return;
+
+    if (assetPath == null) {
+      return Future<void>.value();
+    }
 
     final request = ++_requestId;
+
     _switching = true;
 
     _safeEmit(
       state.copyWith(
         currentIndex: index,
+        isPlaying: false,
         isLoading: true,
         position: Duration.zero,
         duration: Duration.zero,
       ),
     );
 
+    final operation = _operationQueue.then((_) {
+      return _loadAndPlay(index, assetPath, request);
+    });
+
+    _operationQueue = operation.catchError(
+      (Object error, StackTrace stackTrace) {
+        debugPrint('Music switching error: $error');
+      },
+    );
+
+    return _operationQueue;
+  }
+
+  Future<void> _loadAndPlay(
+    int index,
+    String assetPath,
+    int request,
+  ) async {
+    if (request != _requestId || isClosed) return;
+
     try {
-      await _player.pause();
+      await _player.stop();
+
       if (request != _requestId || isClosed) return;
 
       final loadedDuration = await _player.setAsset(assetPath);
+
       if (request != _requestId || isClosed) return;
 
       _switching = false;
 
       _safeEmit(
         state.copyWith(
+          currentIndex: index,
           isLoading: false,
+          isPlaying: false,
           position: Duration.zero,
-          duration: loadedDuration ?? _player.duration ?? Duration.zero,
+          duration: loadedDuration ?? Duration.zero,
         ),
       );
 
-      unawaited(_player.play());
-    } catch (error) {
-      if (request == _requestId) {
+      unawaited(
+        _player.play().catchError(
+          (Object error, StackTrace stackTrace) {
+            debugPrint('Playback error: $error');
+
+            if (request == _requestId) {
+              _safeEmit(
+                state.copyWith(
+                  isPlaying: false,
+                  isLoading: false,
+                ),
+              );
+            }
+          },
+        ),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Failed to load song: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (request == _requestId && !isClosed) {
         _switching = false;
-        _safeEmit(state.copyWith(isPlaying: false, isLoading: false));
+
+        _safeEmit(
+          state.copyWith(
+            isPlaying: false,
+            isLoading: false,
+          ),
+        );
       }
     }
   }
 
   Future<void> togglePlayPause() async {
-    if (state.currentIndex == null) return;
+    if (state.currentIndex == null || _switching) return;
 
     if (_player.playing) {
       await _player.pause();
@@ -179,7 +243,8 @@ class MusicCubit extends Cubit<MusicState> {
     final start = state.currentIndex ?? 0;
 
     for (var step = 1; step <= songs.length; step++) {
-      final candidate = (start - step + songs.length * 2) % songs.length;
+      final candidate =
+          (start - step + songs.length * 2) % songs.length;
 
       if (songs[candidate]['asset'] != null) {
         await playSong(candidate);
@@ -189,15 +254,21 @@ class MusicCubit extends Cubit<MusicState> {
   }
 
   Future<void> seek(Duration position) async {
+    if (_switching) return;
+
     await _player.seek(position);
   }
 
   @override
   Future<void> close() async {
+    _requestId++;
+
     for (final subscription in _subscriptions) {
       await subscription.cancel();
     }
+
     await _player.dispose();
+
     return super.close();
   }
 }
