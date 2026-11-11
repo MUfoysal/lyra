@@ -1,9 +1,12 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../core/theme/app_theme.dart';
 import '../data/song_data.dart';
 import '../services/favorites_service.dart';
+import '../cubit/music_cubit.dart';
+import 'player_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -13,8 +16,7 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  final TextEditingController _searchController =
-      TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
 
   String searchQuery = '';
 
@@ -26,6 +28,180 @@ class _SearchScreenState extends State<SearchScreen> {
 
       return title.contains(query) || artist.contains(query);
     }).toList();
+  }
+
+  Future<void> _playSong(Map<String, String> song) async {
+    final index = songs.indexWhere(
+      (item) => item['id'] == song['id'],
+    );
+
+    if (index == -1) return;
+
+    await context.read<MusicCubit>().playSong(index);
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PlayerScreen(),
+      ),
+    );
+  }
+
+  Widget _buildFallback(double size) {
+    return Container(
+      color: AppColors.darkRed,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.album_rounded,
+        size: size * 0.45,
+        color: AppColors.primaryRed,
+      ),
+    );
+  }
+
+  Widget _buildAlbumCover(String? image, {double size = 58}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(13),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: image != null
+            ? Image.asset(
+                image,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildFallback(size);
+                },
+              )
+            : _buildFallback(size),
+      ),
+    );
+  }
+
+  Widget _buildSongCard(Map<String, String> song) {
+    final title = song['title']!;
+    final artist = song['artist']!;
+
+    final songIndex = songs.indexWhere(
+      (item) => item['id'] == song['id'],
+    );
+
+    return BlocBuilder<MusicCubit, MusicState>(
+      builder: (context, musicState) {
+        final isCurrentSong = musicState.currentIndex == songIndex;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 11),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(
+              color: isCurrentSong
+                  ? AppColors.primaryRed.withValues(alpha: 0.5)
+                  : AppColors.darkRed.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(17),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(17),
+              onTap: () => _playSong(song),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  children: [
+                    _buildAlbumCover(song['image']),
+
+                    const SizedBox(width: 13),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          if (isCurrentSong) ...[
+                            const SizedBox(height: 6),
+                            const Text(
+                              'CURRENTLY PLAYING',
+                              style: TextStyle(
+                                color: AppColors.primaryRed,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    ValueListenableBuilder<Set<String>>(
+                      valueListenable: FavoritesService.favorites,
+                      builder: (context, favorites, child) {
+                        final isFavorite = favorites.contains(title);
+
+                        return IconButton(
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () {
+                            FavoritesService.toggleFavorite(title);
+                          },
+                          icon: Icon(
+                            isFavorite
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: isFavorite
+                                ? AppColors.primaryRed
+                                : AppColors.textSecondary,
+                            size: 20,
+                          ),
+                        );
+                      },
+                    ),
+
+                    if (isCurrentSong)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () {
+                          context.read<MusicCubit>().togglePlayPause();
+                        },
+                        icon: Icon(
+                          musicState.isPlaying
+                              ? Icons.pause_circle_filled_rounded
+                              : Icons.play_circle_fill_rounded,
+                          color: AppColors.primaryRed,
+                          size: 32,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -41,13 +217,12 @@ class _SearchScreenState extends State<SearchScreen> {
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 25),
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               SizedBox(
-                height: 50,
+                height: 48,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -76,23 +251,54 @@ class _SearchScreenState extends State<SearchScreen> {
                         fontFamily: 'BlackOpsOne',
                         fontSize: 30,
                         letterSpacing: 2,
-                        color: Color.fromARGB(255, 246, 5, 5),
+                        color: AppColors.primaryRed,
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.wifi_off_rounded,
+                              color: AppColors.primaryRed,
+                              size: 12,
+                            ),
+                            SizedBox(width: 5),
+                            Text(
+                              'OFFLINE',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 35),
+              const SizedBox(height: 38),
 
-              // Search Heading
               const Text(
                 'YOUR MUSIC. YOUR WORLD.',
                 style: TextStyle(
                   color: AppColors.primaryRed,
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 2,
+                  letterSpacing: 2.5,
                 ),
               ),
 
@@ -101,32 +307,37 @@ class _SearchScreenState extends State<SearchScreen> {
               const Text(
                 'Find your sound.',
                 style: TextStyle(
-                  fontSize: 29,
+                  fontSize: 30,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -1,
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 7),
 
               const Text(
-                'Search through your music collection.',
+                'Every track has its own story.',
                 style: TextStyle(
                   color: AppColors.textSecondary,
-                  fontSize: 13,
+                  fontSize: 12,
                 ),
               ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 27),
 
-              // Search Field
               Container(
                 decoration: BoxDecoration(
                   color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(17),
                   border: Border.all(
-                    color: AppColors.darkRed.withValues(alpha: 0.5),
+                    color: AppColors.darkRed.withValues(alpha: 0.55),
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryRed.withValues(alpha: 0.04),
+                      blurRadius: 15,
+                    ),
+                  ],
                 ),
                 child: TextField(
                   controller: _searchController,
@@ -135,16 +346,17 @@ class _SearchScreenState extends State<SearchScreen> {
                       searchQuery = value.trim();
                     });
                   },
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(fontSize: 13),
                   decoration: InputDecoration(
-                    hintText: 'Songs, artists...',
+                    hintText: 'Search songs or artists...',
                     hintStyle: const TextStyle(
                       color: AppColors.textSecondary,
-                      fontSize: 13,
+                      fontSize: 12,
                     ),
                     prefixIcon: const Icon(
                       Icons.search_rounded,
                       color: AppColors.primaryRed,
+                      size: 22,
                     ),
                     suffixIcon: searchQuery.isNotEmpty
                         ? IconButton(
@@ -170,125 +382,66 @@ class _SearchScreenState extends State<SearchScreen> {
 
               const SizedBox(height: 30),
 
-              // Result Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     searchQuery.isEmpty ? 'All Tracks' : 'Search Results',
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 19,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   Text(
                     '${results.length} TRACKS',
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                      color: AppColors.primaryRed,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
                       letterSpacing: 1,
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 15),
 
-              // Songs List
               if (results.isEmpty)
-                SizedBox(
-                  height: 250,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.search_off_rounded,
-                          size: 55,
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 45),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Column(
+                    children: [
+                      Icon(
+                        Icons.music_off_rounded,
+                        size: 48,
+                        color: AppColors.textSecondary,
+                      ),
+                      SizedBox(height: 14),
+                      Text(
+                        'No songs found',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(height: 7),
+                      Text(
+                        'Try another song or artist name.',
+                        style: TextStyle(
                           color: AppColors.textSecondary,
+                          fontSize: 11,
                         ),
-                        const SizedBox(height: 14),
-                        const Text(
-                          'No songs found',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 7),
-                        const Text(
-                          'Try another song or artist name.',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 )
               else
-                ...results.map((song) {
-                  final title = song['title']!;
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      leading: Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: AppColors.darkRed.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.music_note_rounded,
-                          color: AppColors.primaryRed,
-                        ),
-                      ),
-                      title: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      subtitle: Text(
-                        song['artist']!,
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                      trailing: ValueListenableBuilder<Set<String>>(
-                        valueListenable: FavoritesService.favorites,
-                        builder: (context, favorites, child) {
-                          final isFavorite = favorites.contains(title);
-
-                          return IconButton(
-                            onPressed: () {
-                              FavoritesService.toggleFavorite(title);
-                            },
-                            icon: Icon(
-                              isFavorite
-                                  ? Icons.favorite_rounded
-                                  : Icons.favorite_border_rounded,
-                              color: isFavorite
-                                  ? AppColors.primaryRed
-                                  : AppColors.textSecondary,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  );
-                }),
+                ...results.map(_buildSongCard),
             ],
           ),
         ),
