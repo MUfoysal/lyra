@@ -1,12 +1,111 @@
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/song_data.dart';
 import '../core/theme/app_theme.dart';
 import '../services/favorites_service.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late final PageController _pageController;
+  Timer? _autoSlideTimer;
+
+  int _currentIndex = 0;
+  late final int _initialPage;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _initialPage = songs.isEmpty ? 0 : songs.length * 1000;
+    _pageController = PageController(initialPage: _initialPage);
+
+    _scheduleAutoSlide();
+  }
+
+  void _scheduleAutoSlide() {
+    _autoSlideTimer?.cancel();
+
+    if (songs.length <= 1) return;
+
+    _autoSlideTimer = Timer(
+      const Duration(seconds: 5),
+      () {
+        if (!_pageController.hasClients) {
+          _scheduleAutoSlide();
+          return;
+        }
+
+        final currentPage =
+            (_pageController.page ?? _initialPage.toDouble()).round();
+
+        _pageController.animateToPage(
+          currentPage + 1,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutCubic,
+        );
+      },
+    );
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+
+    if (notification is ScrollStartNotification) {
+      _autoSlideTimer?.cancel();
+    }
+
+    if (notification is ScrollEndNotification) {
+      _scheduleAutoSlide();
+    }
+
+    return false;
+  }
+
+  void _onPageChanged(int page) {
+    setState(() {
+      _currentIndex = page % songs.length;
+    });
+  }
+
+  void _selectPage(int index) {
+    if (!_pageController.hasClients) return;
+
+    final currentPage =
+        (_pageController.page ?? _initialPage.toDouble()).round();
+
+    final targetPage = currentPage - _currentIndex + index;
+
+    _pageController.animateToPage(
+      targetPage,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _playSong(String title) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Playback system is not connected yet.'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _autoSlideTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +119,6 @@ class HomeScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header
                     SizedBox(
                       height: 50,
                       child: Stack(
@@ -45,14 +143,13 @@ class HomeScreen extends StatelessWidget {
                               ),
                             ),
                           ),
-
                           const Text(
                             'L Y R A',
                             style: TextStyle(
                               fontFamily: 'BlackOpsOne',
                               fontSize: 30,
                               letterSpacing: 2,
-                              color: Color.fromARGB(255, 249, 10, 10),
+                              color: AppColors.primaryRed,
                             ),
                           ),
                         ],
@@ -61,7 +158,6 @@ class HomeScreen extends StatelessWidget {
 
                     const SizedBox(height: 38),
 
-                    // Welcome Section
                     const Text(
                       'YOUR MUSIC. YOUR WORLD.',
                       style: TextStyle(
@@ -95,141 +191,245 @@ class HomeScreen extends StatelessWidget {
 
                     const SizedBox(height: 30),
 
-                    // Featured Track
-                    Container(
-                      width: double.infinity,
+                    SizedBox(
                       height: 205,
-                      padding: const EdgeInsets.all(22),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(22),
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFF8B111F),
-                            Color(0xFF42121B),
-                            Color(0xFF181313),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            right: -15,
-                            top: -20,
-                            child: Icon(
-                              Icons.album_rounded,
-                              size: 145,
-                              color: Colors.white.withValues(alpha: 0.07),
+                      child: songs.isEmpty
+                          ? const Center(
+                              child: Text('No songs available'),
+                            )
+                          : NotificationListener<ScrollNotification>(
+                              onNotification:
+                                  _handleScrollNotification,
+                              child: PageView.builder(
+                                controller: _pageController,
+                                physics: const PageScrollPhysics(),
+                                onPageChanged: _onPageChanged,
+                                itemBuilder: (context, page) {
+                                  final song =
+                                      songs[page % songs.length];
+
+                                  final title = song['title']!;
+                                  final artist = song['artist']!;
+
+                                  return GestureDetector(
+                                    onTap: () => _playSong(title),
+                                    child: Container(
+                                      margin: const EdgeInsets.only(
+                                        right: 5,
+                                      ),
+                                      padding: const EdgeInsets.all(22),
+                                      decoration: BoxDecoration(
+                                        borderRadius:
+                                            BorderRadius.circular(22),
+                                        gradient:
+                                            const LinearGradient(
+                                          colors: [
+                                            Color(0xFF8B111F),
+                                            Color(0xFF42121B),
+                                            Color(0xFF181313),
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                      ),
+                                      child: Stack(
+                                        children: [
+                                          Positioned(
+                                            right: -15,
+                                            top: -20,
+                                            child: Icon(
+                                              Icons.album_rounded,
+                                              size: 145,
+                                              color:
+                                                  Colors.white.withValues(
+                                                alpha: 0.07,
+                                              ),
+                                            ),
+                                          ),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment
+                                                    .spaceBetween,
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets
+                                                        .symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 6,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white
+                                                      .withValues(
+                                                    alpha: 0.12,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius
+                                                          .circular(20),
+                                                ),
+                                                child: const Text(
+                                                  'FEATURED TRACK',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight:
+                                                        FontWeight.w700,
+                                                    letterSpacing: 1.5,
+                                                  ),
+                                                ),
+                                              ),
+                                              Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.end,
+                                                children: [
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          title,
+                                                          maxLines: 1,
+                                                          overflow:
+                                                              TextOverflow
+                                                                  .ellipsis,
+                                                          style:
+                                                              const TextStyle(
+                                                            fontSize: 21,
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .w800,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 6,
+                                                        ),
+                                                        Text(
+                                                          artist,
+                                                          maxLines: 1,
+                                                          overflow:
+                                                              TextOverflow
+                                                                  .ellipsis,
+                                                          style:
+                                                              const TextStyle(
+                                                            color: Colors
+                                                                .white70,
+                                                            fontSize: 12,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  ValueListenableBuilder<
+                                                      Set<String>>(
+                                                    valueListenable:
+                                                        FavoritesService
+                                                            .favorites,
+                                                    builder: (
+                                                      context,
+                                                      favorites,
+                                                      child,
+                                                    ) {
+                                                      final isFavorite =
+                                                          favorites
+                                                              .contains(
+                                                        title,
+                                                      );
+
+                                                      return IconButton(
+                                                        onPressed: () {
+                                                          FavoritesService
+                                                              .toggleFavorite(
+                                                            title,
+                                                          );
+                                                        },
+                                                        icon: Icon(
+                                                          isFavorite
+                                                              ? Icons
+                                                                  .favorite_rounded
+                                                              : Icons
+                                                                  .favorite_border_rounded,
+                                                          color:
+                                                              Colors.white,
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                  Container(
+                                                    width: 48,
+                                                    height: 48,
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                      color: AppColors
+                                                          .primaryRed,
+                                                      shape:
+                                                          BoxShape.circle,
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons
+                                                          .play_arrow_rounded,
+                                                      size: 32,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
-                          ),
-
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.12,
-                                      ),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: const Text(
-                                      'FEATURED TRACK',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 1.5,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  const Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Midnight Dreams',
-                                          style: TextStyle(
-                                            fontSize: 23,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                        SizedBox(height: 6),
-                                        Text(
-                                          'Unknown Artist',
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  ValueListenableBuilder<Set<String>>(
-                                    valueListenable:
-                                        FavoritesService.favorites,
-                                    builder: (context, favorites, child) {
-                                      final isFavorite = favorites.contains(
-                                        'Midnight Dreams',
-                                      );
-
-                                      return IconButton(
-                                        onPressed: () {
-                                          FavoritesService.toggleFavorite(
-                                            'Midnight Dreams',
-                                          );
-                                        },
-                                        icon: Icon(
-                                          isFavorite
-                                              ? Icons.favorite_rounded
-                                              : Icons.favorite_border_rounded,
-                                          color: Colors.white,
-                                        ),
-                                      );
-                                    },
-                                  ),
-
-                                  Container(
-                                    width: 52,
-                                    height: 52,
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.primaryRed,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.play_arrow_rounded,
-                                      size: 34,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
                     ),
 
-                    const SizedBox(height: 35),
+                    const SizedBox(height: 14),
 
-                    // Recently Added
+                    if (songs.isNotEmpty)
+                      Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            songs.length,
+                            (index) {
+                              final isActive =
+                                  _currentIndex == index;
+
+                              return GestureDetector(
+                                onTap: () => _selectPage(index),
+                                child: AnimatedContainer(
+                                  duration: const Duration(
+                                    milliseconds: 200,
+                                  ),
+                                  margin:
+                                      const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  width: isActive ? 22 : 7,
+                                  height: 7,
+                                  decoration: BoxDecoration(
+                                    color: isActive
+                                        ? AppColors.primaryRed
+                                        : AppColors.darkRed,
+                                    borderRadius:
+                                        BorderRadius.circular(10),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+
+                    const SizedBox(height: 30),
+
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment:
+                          MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
                           'Recently Added',
@@ -239,7 +439,7 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'VIEW ALL',
+                          'NEW TRACKS',
                           style: TextStyle(
                             color: AppColors.primaryRed,
                             fontSize: 10,
@@ -265,7 +465,8 @@ class HomeScreen extends StatelessWidget {
                             width: 132,
                             margin: const EdgeInsets.only(right: 14),
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
                               children: [
                                 Stack(
                                   children: [
@@ -274,8 +475,10 @@ class HomeScreen extends StatelessWidget {
                                       height: 105,
                                       decoration: BoxDecoration(
                                         color: AppColors.surface,
-                                        borderRadius: BorderRadius.circular(16),
-                                        gradient: LinearGradient(
+                                        borderRadius:
+                                            BorderRadius.circular(16),
+                                        gradient:
+                                            const LinearGradient(
                                           colors: [
                                             AppColors.darkRed,
                                             AppColors.surface,
@@ -290,14 +493,19 @@ class HomeScreen extends StatelessWidget {
                                         color: AppColors.primaryRed,
                                       ),
                                     ),
-
                                     Positioned(
                                       top: 4,
                                       right: 4,
-                                      child: ValueListenableBuilder<Set<String>>(
+                                      child:
+                                          ValueListenableBuilder<
+                                              Set<String>>(
                                         valueListenable:
                                             FavoritesService.favorites,
-                                        builder: (context, favorites, child) {
+                                        builder: (
+                                          context,
+                                          favorites,
+                                          child,
+                                        ) {
                                           final isFavorite =
                                               favorites.contains(title);
 
@@ -305,14 +513,15 @@ class HomeScreen extends StatelessWidget {
                                             visualDensity:
                                                 VisualDensity.compact,
                                             onPressed: () {
-                                              FavoritesService.toggleFavorite(
-                                                title,
-                                              );
+                                              FavoritesService
+                                                  .toggleFavorite(title);
                                             },
                                             icon: Icon(
                                               isFavorite
-                                                  ? Icons.favorite_rounded
-                                                  : Icons.favorite_border_rounded,
+                                                  ? Icons
+                                                      .favorite_rounded
+                                                  : Icons
+                                                      .favorite_border_rounded,
                                               color: isFavorite
                                                   ? AppColors.primaryRed
                                                   : Colors.white,
@@ -324,9 +533,7 @@ class HomeScreen extends StatelessWidget {
                                     ),
                                   ],
                                 ),
-
                                 const SizedBox(height: 9),
-
                                 Text(
                                   title,
                                   maxLines: 1,
@@ -342,100 +549,11 @@ class HomeScreen extends StatelessWidget {
                         },
                       ),
                     ),
-
-                    const SizedBox(height: 24),
-
-                    // All Songs
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'All Songs',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          '${songs.length} TRACKS',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    ...songs.map((song) {
-                      final title = song['title']!;
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 9),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 3,
-                          ),
-                          leading: Container(
-                            width: 46,
-                            height: 46,
-                            decoration: BoxDecoration(
-                              color: AppColors.darkRed.withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.music_note_rounded,
-                              color: AppColors.primaryRed,
-                            ),
-                          ),
-                          title: Text(
-                            title,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          subtitle: Text(
-                            song['artist']!,
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                          trailing: ValueListenableBuilder<Set<String>>(
-                            valueListenable: FavoritesService.favorites,
-                            builder: (context, favorites, child) {
-                              final isFavorite = favorites.contains(title);
-
-                              return IconButton(
-                                onPressed: () {
-                                  FavoritesService.toggleFavorite(title);
-                                },
-                                icon: Icon(
-                                  isFavorite
-                                      ? Icons.favorite_rounded
-                                      : Icons.favorite_border_rounded,
-                                  color: isFavorite
-                                      ? AppColors.primaryRed
-                                      : AppColors.textSecondary,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      );
-                    }),
                   ],
                 ),
               ),
             ),
 
-            // Mini Player
             Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: 18,
@@ -445,7 +563,9 @@ class HomeScreen extends StatelessWidget {
                 color: AppColors.surface,
                 border: Border(
                   top: BorderSide(
-                    color: AppColors.darkRed.withValues(alpha: 0.4),
+                    color: AppColors.darkRed.withValues(
+                      alpha: 0.4,
+                    ),
                   ),
                 ),
               ),
@@ -463,12 +583,11 @@ class HomeScreen extends StatelessWidget {
                       color: Colors.white,
                     ),
                   ),
-
                   const SizedBox(width: 12),
-
                   const Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Nothing Playing',
@@ -488,10 +607,11 @@ class HomeScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-
                   IconButton(
                     onPressed: () {},
-                    icon: const Icon(Icons.play_arrow_rounded),
+                    icon: const Icon(
+                      Icons.play_arrow_rounded,
+                    ),
                     color: AppColors.primaryRed,
                     iconSize: 29,
                   ),
