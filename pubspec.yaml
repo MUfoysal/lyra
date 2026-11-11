@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_bloc: ^9.1.1
   just_audio: ^0.10.6
+  animated_bottom_navigation_bar: ^1.4.1
 
 dev_dependencies:
   flutter_test:
