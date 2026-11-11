@@ -1,17 +1,12 @@
 
 import 'package:flutter/material.dart';
-
+import '../data/song_data.dart';
 import '../core/theme/app_theme.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  final List<Map<String, String>> songs = const [
-    {'title': 'Midnight Dreams', 'artist': 'Unknown Artist'},
-    {'title': 'Lost in Silence', 'artist': 'Unknown Artist'},
-    {'title': 'Dark Paradise', 'artist': 'Unknown Artist'},
-    {'title': 'After the Rain', 'artist': 'Unknown Artist'},
-  ];
+  
 
   @override
   Widget build(BuildContext context) {

@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:lyra/screens/search_screen.dart';
 
 import 'home_screen.dart';
 import '../widgets/bottom_navigation.dart';
@@ -16,11 +17,11 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = const [
-    HomeScreen(),
-    PlaceholderPage(title: 'Search'),
-    PlaceholderPage(title: 'Favorites'),
-    PlaceholderPage(title: 'Library'),
-  ];
+  HomeScreen(),
+  SearchScreen(),
+  PlaceholderPage(title: 'Favorites'),
+  PlaceholderPage(title: 'Library'),
+];
 
   @override
   Widget build(BuildContext context) {
