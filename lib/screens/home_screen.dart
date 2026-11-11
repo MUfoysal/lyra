@@ -1,12 +1,12 @@
 
 import 'package:flutter/material.dart';
+
 import '../data/song_data.dart';
 import '../core/theme/app_theme.dart';
+import '../services/favorites_service.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
-
-  
 
   @override
   Widget build(BuildContext context) {
@@ -16,55 +16,47 @@ class HomeScreen extends StatelessWidget {
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 25),
+                padding: const EdgeInsets.fromLTRB(25, 18, 20, 25),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Header
-                    Row(
-                      children: [
-                        Container(
-                          width: 43,
-                          height: 43,
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: AppColors.darkRed,
+                    SizedBox(
+                      height: 50,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Container(
+                              width: 43,
+                              height: 43,
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: AppColors.darkRed,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.graphic_eq_rounded,
+                                color: AppColors.primaryRed,
+                                size: 27,
+                              ),
                             ),
                           ),
-                          child: const Icon(
-                            Icons.graphic_eq_rounded,
-                            color: AppColors.primaryRed,
-                            size: 27,
-                          ),
-                        ),
 
-                        const SizedBox(width: 12),
-
-                        const Text(
-                          'L Y R A',
-                          style: TextStyle(
-                            fontFamily: 'BlackOpsOne',
-                            fontSize: 27,
-                            letterSpacing: 2,
+                          const Text(
+                            'L Y R A',
+                            style: TextStyle(
+                              fontFamily: 'BlackOpsOne',
+                              fontSize: 30,
+                              letterSpacing: 2,
+                              color: Color.fromARGB(255, 249, 10, 10),
+                            ),
                           ),
-                        ),
-
-                        const Spacer(),
-
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(13),
-                          ),
-                          child: IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.search_rounded),
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
 
                     const SizedBox(height: 38),
@@ -188,6 +180,30 @@ class HomeScreen extends StatelessWidget {
                                     ),
                                   ),
 
+                                  ValueListenableBuilder<Set<String>>(
+                                    valueListenable:
+                                        FavoritesService.favorites,
+                                    builder: (context, favorites, child) {
+                                      final isFavorite = favorites.contains(
+                                        'Midnight Dreams',
+                                      );
+
+                                      return IconButton(
+                                        onPressed: () {
+                                          FavoritesService.toggleFavorite(
+                                            'Midnight Dreams',
+                                          );
+                                        },
+                                        icon: Icon(
+                                          isFavorite
+                                              ? Icons.favorite_rounded
+                                              : Icons.favorite_border_rounded,
+                                          color: Colors.white,
+                                        ),
+                                      );
+                                    },
+                                  ),
+
                                   Container(
                                     width: 52,
                                     height: 52,
@@ -242,38 +258,77 @@ class HomeScreen extends StatelessWidget {
                         scrollDirection: Axis.horizontal,
                         itemCount: songs.length,
                         itemBuilder: (context, index) {
+                          final song = songs[index];
+                          final title = song['title']!;
+
                           return Container(
                             width: 132,
                             margin: const EdgeInsets.only(right: 14),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  width: 132,
-                                  height: 105,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surface,
-                                    borderRadius: BorderRadius.circular(16),
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        AppColors.darkRed,
-                                        AppColors.surface,
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
+                                Stack(
+                                  children: [
+                                    Container(
+                                      width: 132,
+                                      height: 105,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surface,
+                                        borderRadius: BorderRadius.circular(16),
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            AppColors.darkRed,
+                                            AppColors.surface,
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.album_rounded,
+                                        size: 49,
+                                        color: AppColors.primaryRed,
+                                      ),
                                     ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.album_rounded,
-                                    size: 49,
-                                    color: AppColors.primaryRed,
-                                  ),
+
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: ValueListenableBuilder<Set<String>>(
+                                        valueListenable:
+                                            FavoritesService.favorites,
+                                        builder: (context, favorites, child) {
+                                          final isFavorite =
+                                              favorites.contains(title);
+
+                                          return IconButton(
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            onPressed: () {
+                                              FavoritesService.toggleFavorite(
+                                                title,
+                                              );
+                                            },
+                                            icon: Icon(
+                                              isFavorite
+                                                  ? Icons.favorite_rounded
+                                                  : Icons.favorite_border_rounded,
+                                              color: isFavorite
+                                                  ? AppColors.primaryRed
+                                                  : Colors.white,
+                                              size: 19,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
                                 ),
 
                                 const SizedBox(height: 9),
 
                                 Text(
-                                  songs[index]['title']!,
+                                  title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
@@ -316,6 +371,8 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 14),
 
                     ...songs.map((song) {
+                      final title = song['title']!;
+
                       return Container(
                         margin: const EdgeInsets.only(bottom: 9),
                         decoration: BoxDecoration(
@@ -340,7 +397,7 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ),
                           title: Text(
-                            song['title']!,
+                            title,
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -350,9 +407,25 @@ class HomeScreen extends StatelessWidget {
                             song['artist']!,
                             style: const TextStyle(fontSize: 11),
                           ),
-                          trailing: const Icon(
-                            Icons.more_horiz_rounded,
-                            color: AppColors.textSecondary,
+                          trailing: ValueListenableBuilder<Set<String>>(
+                            valueListenable: FavoritesService.favorites,
+                            builder: (context, favorites, child) {
+                              final isFavorite = favorites.contains(title);
+
+                              return IconButton(
+                                onPressed: () {
+                                  FavoritesService.toggleFavorite(title);
+                                },
+                                icon: Icon(
+                                  isFavorite
+                                      ? Icons.favorite_rounded
+                                      : Icons.favorite_border_rounded,
+                                  color: isFavorite
+                                      ? AppColors.primaryRed
+                                      : AppColors.textSecondary,
+                                ),
+                              );
+                            },
                           ),
                         ),
                       );
