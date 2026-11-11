@@ -107,6 +107,69 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _toggleSong(int index) async {
+    final cubit = context.read<MusicCubit>();
+
+    if (cubit.state.currentIndex == index) {
+      await cubit.togglePlayPause();
+    } else {
+      await _playSong(index);
+    }
+  }
+
+  Widget _buildPlayButton(
+    int index, {
+    double size = 43,
+    double iconSize = 29,
+  }) {
+    return BlocBuilder<MusicCubit, MusicState>(
+      builder: (context, state) {
+        final isCurrentSong = state.currentIndex == index;
+        final isPlaying = isCurrentSong && state.isPlaying;
+        final isLoading = isCurrentSong && state.isLoading;
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _toggleSong(index),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: AppColors.primaryRed,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaryRed.withValues(alpha: 0.25),
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Center(
+              child: isLoading
+                  ? SizedBox(
+                      width: iconSize * 0.65,
+                      height: iconSize * 0.65,
+                      child: const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(
+                      isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: iconSize,
+                    ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildAlbumCover(
     String? image, {
     double? width,
@@ -215,203 +278,189 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  
-Widget _buildFeaturedCard(int index) {
-  final song = songs[index];
-  final title = song['title']!;
-  final artist = song['artist']!;
-  final image = song['image'];
+  Widget _buildFeaturedCard(int index) {
+    final song = songs[index];
+    final title = song['title']!;
+    final artist = song['artist']!;
+    final image = song['image'];
 
-  return GestureDetector(
-    onTap: () => _playSong(index),
-    child: Container(
-      margin: const EdgeInsets.only(right: 5),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(23),
-        border: Border.all(
-          color: AppColors.darkRed.withValues(alpha: 0.5),
+    return GestureDetector(
+      onTap: () => _playSong(index),
+      child: Container(
+        margin: const EdgeInsets.only(right: 5),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(23),
+          border: Border.all(
+            color: AppColors.darkRed.withValues(alpha: 0.5),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primaryRed.withValues(alpha: 0.12),
+              blurRadius: 22,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryRed.withValues(alpha: 0.12),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (image != null)
-            Image.asset(
-              image,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return _buildCoverFallback(65);
-              },
-            )
-          else
-            _buildCoverFallback(65),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (image != null)
+              Image.asset(
+                image,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildCoverFallback(65);
+                },
+              )
+            else
+              _buildCoverFallback(65),
 
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.08),
-                  Colors.transparent,
-                  Colors.black.withValues(alpha: 0.35),
-                  Colors.black.withValues(alpha: 0.92),
-                ],
-                stops: const [0.0, 0.25, 0.55, 1.0],
-              ),
-            ),
-          ),
-
-          Positioned(
-            top: 15,
-            left: 15,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 6,
-              ),
+            DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.08),
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.35),
+                    Colors.black.withValues(alpha: 0.92),
+                  ],
+                  stops: const [0.0, 0.25, 0.55, 1.0],
                 ),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.graphic_eq_rounded,
-                    color: AppColors.primaryRed,
-                    size: 13,
-                  ),
-                  SizedBox(width: 5),
-                  Text(
-                    'FEATURED TRACK',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ],
               ),
             ),
-          ),
 
-          Positioned(
-            left: 17,
-            right: 15,
-            bottom: 15,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black,
-                              blurRadius: 12,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        artist,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.75),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+            Positioned(
+              top: 15,
+              left: 15,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
                   ),
                 ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.graphic_eq_rounded,
+                      color: AppColors.primaryRed,
+                      size: 13,
+                    ),
+                    SizedBox(width: 5),
+                    Text(
+                      'FEATURED TRACK',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
-                const SizedBox(width: 10),
-
-                ValueListenableBuilder<Set<String>>(
-                  valueListenable: FavoritesService.favorites,
-                  builder: (context, favorites, child) {
-                    final isFavorite = favorites.contains(title);
-
-                    return GestureDetector(
-                      onTap: () {
-                        FavoritesService.toggleFavorite(title);
-                      },
-                      child: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.2),
+            Positioned(
+              left: 17,
+              right: 15,
+              bottom: 15,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 12,
+                              ),
+                            ],
                           ),
                         ),
-                        child: Icon(
-                          isFavorite
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          color: isFavorite
-                              ? AppColors.primaryRed
-                              : Colors.white,
-                          size: 19,
+                        const SizedBox(height: 5),
+                        Text(
+                          artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.75),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-
-                const SizedBox(width: 8),
-
-                Container(
-                  width: 43,
-                  height: 43,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primaryRed,
-                    shape: BoxShape.circle,
+                      ],
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.play_arrow_rounded,
-                    color: Colors.white,
-                    size: 29,
+
+                  const SizedBox(width: 10),
+
+                  ValueListenableBuilder<Set<String>>(
+                    valueListenable: FavoritesService.favorites,
+                    builder: (context, favorites, child) {
+                      final isFavorite = favorites.contains(title);
+
+                      return GestureDetector(
+                        onTap: () {
+                          FavoritesService.toggleFavorite(title);
+                        },
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Icon(
+                            isFavorite
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: isFavorite
+                                ? AppColors.primaryRed
+                                : Colors.white,
+                            size: 19,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                ),
-              ],
+
+                  const SizedBox(width: 8),
+
+                  _buildPlayButton(index),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   Widget _buildRecentlyAddedCard(int index) {
     final song = songs[index];
@@ -444,6 +493,7 @@ Widget _buildFeaturedCard(int index) {
                   iconSize: 45,
                   radius: 13,
                 ),
+
                 Positioned(
                   top: 5,
                   right: 5,
@@ -477,26 +527,21 @@ Widget _buildFeaturedCard(int index) {
                     },
                   ),
                 ),
+
                 Positioned(
                   bottom: 6,
                   right: 6,
-                  child: Container(
-                    width: 29,
-                    height: 29,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primaryRed,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                  child: _buildPlayButton(
+                    index,
+                    size: 29,
+                    iconSize: 20,
                   ),
                 ),
               ],
             ),
+
             const SizedBox(height: 10),
+
             Text(
               title,
               maxLines: 1,
@@ -506,7 +551,9 @@ Widget _buildFeaturedCard(int index) {
                 fontWeight: FontWeight.w800,
               ),
             ),
+
             const SizedBox(height: 4),
+
             Text(
               artist,
               maxLines: 1,
@@ -564,6 +611,7 @@ Widget _buildFeaturedCard(int index) {
                         ),
                       ),
                     ),
+
                     const Text(
                       'L Y R A',
                       style: TextStyle(
@@ -573,6 +621,7 @@ Widget _buildFeaturedCard(int index) {
                         color: AppColors.primaryRed,
                       ),
                     ),
+
                     Align(
                       alignment: Alignment.centerRight,
                       child: Container(
@@ -713,7 +762,9 @@ Widget _buildFeaturedCard(int index) {
                     label: 'TOTAL TRACKS',
                     value: '${songs.length}',
                   ),
+
                   const SizedBox(width: 12),
+
                   ValueListenableBuilder<Set<String>>(
                     valueListenable: FavoritesService.favorites,
                     builder: (context, favorites, child) {
@@ -761,8 +812,6 @@ Widget _buildFeaturedCard(int index) {
                 ),
 
               const SizedBox(height: 28),
-
-             
             ],
           ),
         ),

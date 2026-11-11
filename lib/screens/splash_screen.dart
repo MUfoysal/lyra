@@ -15,7 +15,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
-  static const String _heroAsset = 'assets/images/splash.png';
+  static const String _heroAsset = 'assets/images/splashscreen.png';
   static const Alignment _heroAlignment = Alignment.topCenter;
   static const double _heroFraction = 0.58;
   static const double _heroShift = 0.07;
